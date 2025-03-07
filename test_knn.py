@@ -35,9 +35,9 @@ def benchmark(func, *args, **kwargs):
 if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    N = 7000
-    D = 16
-    k = 80
+    N = 15000
+    D = 64
+    k = 100
 
     query = torch.randn(N, D, device=device)
     database = query
@@ -64,23 +64,31 @@ if __name__ == '__main__':
     database = query
     k = 5'''
     
+    # For Custom CUDA kNN Operator:
     print("\n--- Custom CUDA kNN Operator ---")
     (distances_cuda, indices_cuda), time_cuda = benchmark(knn_cuda_wrapper, query, database, k)
     print(f"\nknn_cuda -- Time: {time_cuda:.4f} s")
     print("  Distances shape:", distances_cuda.shape)
 
-    print("\n---  Distances (first query) ---")
-    print("Custom CUDA kNN distances:")
-    print(distances_cuda[:1].cpu(), indices_cuda[:1].cpu() )
+    
+    sorted_distances_cuda, sort_idx_cuda = torch.sort(distances_cuda[0])
+    sorted_indices_cuda = indices_cuda[0][sort_idx_cuda]
+    print("\n--- Sorted Results for First Query (Custom CUDA) ---")
+    print("Sorted Distances:", sorted_distances_cuda.cpu())
+    print("Sorted Indices:  ", sorted_indices_cuda.cpu())
 
-    print("\n--- FastGraph---")
-    (distances_cuda, indices_cuda), time_cuda = benchmark(knn_fastgraphcompute, query, k)
-    print(f"\n FastGraph -- Time: {time_cuda:.4f} s")
-    print("  Distances shape:", distances_cuda.shape)
 
-    print("\n---  Distances (first query) ---")
-    print("FastGraph kNN distances:")
-    print(distances_cuda[:1].cpu(), indices_cuda[:1].cpu() )
+    # For FastGraph:
+    print("\n--- FastGraph ---")
+    (distances_fg, indices_fg), time_fg = benchmark(knn_fastgraphcompute, query, k)
+    print(f"\nFastGraph -- Time: {time_fg:.4f} s")
+    print("  Distances shape:", distances_fg.shape)
+
+    sorted_distances_fg, sort_idx_fg = torch.sort(distances_fg[0])
+    sorted_indices_fg = indices_fg[0][sort_idx_fg]
+    print("\n--- Sorted Results for First Query (FastGraph) ---")
+    print("Sorted Distances:", sorted_distances_fg.cpu())
+    print("Sorted Indices:  ", sorted_indices_fg.cpu())
 
    
     print("\n--- TorchScript Compatibility Check ---")
@@ -94,3 +102,5 @@ if __name__ == '__main__':
         print(distances_loaded[:1].cpu())
     except Exception as e:
         print("knn_cuda operator: TorchScript Incompatible", e)
+
+
